@@ -37,6 +37,11 @@ type MNDPMessage struct {
 }
 
 func (tlv mndpTLV) String() string {
+	typeTag, value := tlv.Value()
+	return fmt.Sprintf("%s: %s", typeTag, value)
+}
+
+func (tlv mndpTLV) Value() (string, string) {
 	typeTag := "?"
 	value := "?"
 	switch tlv.typeTag {
@@ -71,7 +76,7 @@ func (tlv mndpTLV) String() string {
 		typeTag = "Interface"
 		value = string(tlv.value)
 	}
-	return fmt.Sprintf("%s: %s", typeTag, value)
+	return typeTag, value
 }
 
 func getTlvsString(tlvs []mndpTLV) string {
@@ -96,6 +101,27 @@ func (msg MNDPMessage) String() string {
 		return fmt.Sprintf("!!MNDP[%d] (%s):\n  [%s]", msg.seqNo, msg.src, "REFRESH REQUEST")
 	}
 	return fmt.Sprintf("!!MNDP[%d] (%s):\n  [%s]", msg.seqNo, msg.src, getTlvsString(msg.tlvs))
+}
+
+func (msg MNDPMessage) Source() string {
+	ip, _, err := net.SplitHostPort(msg.src)
+	if err != nil {
+		return ""
+	}
+	return ip
+}
+
+func (msg MNDPMessage) TLV(id uint16) (*mndpTLV, error) {
+	if msg.typeTag == mndpMNDP && msg.seqNo == 0 {
+		return nil, fmt.Errorf("Not a router TLV")
+	}
+	for _, tlv := range msg.tlvs {
+		fmt.Println(tlv.typeTag)
+		if tlv.typeTag == id {
+			return &tlv, nil
+		}
+	}
+	return nil, fmt.Errorf("TLV Not found")
 }
 
 func readMndpTLV(r io.Reader) *mndpTLV {
